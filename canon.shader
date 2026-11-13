@@ -113,6 +113,12 @@ uniform float drip_length<
     float minimum = 0.0; float maximum = 80.0; float step = 0.5;
 > = 35.0;
 
+uniform float blood_motion<
+    string label = "Movimiento de la sangre (0 = quieta)";
+    string widget_type = "slider";
+    float minimum = 0.0; float maximum = 3.0; float step = 0.05;
+> = 1.0;
+
 uniform bool end_reveal<
     string label = "Al final abrir a pantalla completa (si no, funde a negro)";
 > = true;
@@ -136,41 +142,94 @@ float ease(float t)
     return t * t * (3.0 - 2.0 * t);
 }
 
-// Altura (px desde arriba) hasta donde llega la sangre en la columna x.
-// level 0 = nada visible, 1 = cubre toda la pantalla. Cada celda tiene un chorro con forma de
-// media elipse (punta redondeada) de ancho y largo aleatorios; los largos usan h*h para que
-// haya pocos chorros largos y muchos cortos. Se revisan las celdas vecinas para que un chorro
-// ancho no se corte en la orilla de su celda.
-float bloodFront(float x, float level, float H, float cell, float drip_len, float seed)
+// ---- Misma sección que en sangre.shader ------------------------------------------------------
+
+// Unión suave de dos distancias (<0 adentro): funde chorro, gota y cortina como líquido
+float smin(float a, float b, float k)
 {
+    float h = saturate(0.5 + 0.5 * (b - a) / k);
+    return lerp(b, a, h) - k * h * (1.0 - h);
+}
+
+// Cápsula vertical de radio r1 arriba y r2 abajo, con el eje de largo h hacia +y
+float unevenCapsule(float2 p, float r1, float r2, float h)
+{
+    p.x = abs(p.x);
+    float b = (r1 - r2) / h;
+    float a = sqrt(1.0 - b * b);
+    float k = dot(p, float2(-b, a));
+    if (k < 0.0) return length(p) - r1;
+    if (k > a * h) return length(p - float2(0.0, h)) - r2;
+    return dot(p, float2(a, b)) - r1;
+}
+
+// Distancia en px hacia adentro de la sangre (>0 adentro). level 0 = nada, 1 = cubre todo.
+// Cada celda tiene un chorro: cuello que se adelgaza y una gota gorda en la punta. Cada uno
+// arranca a su tiempo y acelera como con gravedad, así que unos se adelantan a otros. Con t
+// (tiempo real) la orilla ondula, las puntas se arrastran y algunas gotas se desprenden y caen.
+float bloodField(float2 pos, float level, float H, float cell, float drip_len, float sd, float t, float mv)
+{
+    float x = pos.x;
     float front = lerp(-drip_len - 4.0, H + 4.0, level);
-    front += sin(x * 0.013 + seed) * cell * 0.15 + sin(x * 0.031 + seed * 2.0) * cell * 0.08;
+    front += sin(x * 0.013 + sd) * cell * 0.15
+           + sin(x * 0.031 + sd * 2.0 + t * 1.1) * cell * (0.03 + 0.03 * mv)
+           + sin(x * 0.071 - t * 1.9 + sd) * cell * 0.025 * mv;
+    float d = pos.y - front;
 
     float ci = floor(x / cell);
-    float best = 0.0;
     float kf = -1.0;
     for (int k = 0; k < 3; k++) {
         float c = ci + kf;
-        float h1 = hash11(c * 1.37 + seed);
-        float h2 = hash11(c * 7.91 + seed + 11.0);
-        float h3 = hash11(c * 3.17 + seed + 27.0);
-        float cx = (c + 0.2 + 0.6 * h1) * cell;
+        float h1 = hash11(c * 1.37 + sd);
+        float h2 = hash11(c * 7.91 + sd + 11.0);
+        float h3 = hash11(c * 3.17 + sd + 27.0);
+        float h4 = hash11(c * 5.53 + sd + 41.0);
+        float h5 = hash11(c * 2.29 + sd + 63.0);
         float hw = cell * (0.18 + 0.32 * h2);
-        float u = (x - cx) / hw;
-        best = max(best, drip_len * h3 * h3 * sqrt(saturate(1.0 - u * u)));
+        float cx = (c + 0.2 + 0.6 * h1) * cell + sin(t * (0.5 + h4) + h1 * 6.28) * hw * 0.12 * mv;
+
+        float g = saturate((level - h4 * 0.3) / (0.3 + 0.4 * h5));
+        float ext = drip_len * h3 * h3 * g * g
+                  + (0.5 + 0.5 * sin(t * (0.6 + 0.8 * h5) + h2 * 6.28)) * hw * 0.6 * g * mv;
+        float rb = hw * lerp(0.35, 0.62, g);
+        float tip = front + max(ext - rb, 0.0);
+        float top = front - hw;
+        float len = max(tip - top, hw - rb * 0.6 + 1.0);
+
+        float dc = unevenCapsule(float2(x - cx, pos.y - top), hw, rb * 0.6, len);
+        dc = smin(dc, length(float2(x - cx, pos.y - tip)) - rb, rb * 0.6);
+        d = smin(d, dc, cell * 0.12);
+
+        // Gota que se desprende de la punta y cae acelerando
+        if (mv > 0.01 && h5 > 0.5 && g > 0.85) {
+            float tau = frac(t * mv * (0.3 + 0.35 * h4) + h1);
+            float dy = rb + tau * tau * H * 0.7;
+            float rr = rb * 0.6 * smoothstep(0.0, 0.12, tau);
+            d = min(d, length(float2(x - cx, (pos.y - tip - dy) * 0.75)) - rr);
+        }
         kf += 1.0;
     }
-    return front + best;
+    return -d;
 }
 
-// Color de la sangre según la distancia e (px) al frente: orilla más oscura y un brillo
-// húmedo angosto un poco adentro.
-float3 bloodShade(float e)
+// Color según e (px hacia adentro): orilla oscura, brillo húmedo que sigue la forma de cada
+// chorro (luz desde arriba a la izquierda) y vetas que fluyen hacia abajo por dentro.
+float3 bloodShade(float e, float2 pos, float t, float mv)
 {
     float3 c = blood_color.rgb * lerp(0.55, 1.0, smoothstep(0.0, 5.0, e));
-    c += smoothstep(3.0, 7.0, e) * (1.0 - smoothstep(9.0, 15.0, e)) * 0.12;
+
+    float flow = 0.5 + 0.5 * sin(pos.x * 0.09 + 2.0 * sin(pos.y * 0.012 - t * 0.9 * mv + pos.x * 0.01));
+    c *= lerp(1.0, lerp(0.82, 1.08, flow), smoothstep(6.0, 20.0, e));
+
+    float2 gr = float2(ddx(e), ddy(e));
+    float2 n = -gr / max(length(gr), 1e-4);
+    float spec = pow(saturate(dot(n, float2(-0.6, -0.8))), 6.0);
+    float band = smoothstep(1.0, 3.0, e) * (1.0 - smoothstep(4.0, 10.0, e));
+    c += band * (0.06 + 0.4 * spec) * float3(1.0, 0.75, 0.75);
     return c;
 }
+
+// ---------------------------------------------------------------------------------------------
 
 // Interior del cañón visto desde la recámara: estrías en espiral, anillos de maquinado y luz
 // que entra por la boca (más claro junto a ella, oscuro hacia la orilla de la pantalla).
@@ -247,10 +306,10 @@ float4 mainImage(VertData v_in) : TARGET
     // quede limpia, y afuera se apaga durante la apertura final
     if (show_blood && pb > 0.0) {
         float cell = H * 0.055;
-        float e = bloodFront(pos.x, pb, H, cell, drip_length * 0.01 * H, 3.7) - pos.y;
+        float e = bloodField(pos, pb, H, cell, drip_length * 0.01 * H, 3.7, t, blood_motion);
         float m = saturate(e / 1.5 + 0.5);
         float a = blood_opacity * m * lerp(1.0, 1.0 - cl, inside) * settle;
-        col = lerp(col, bloodShade(e), a);
+        col = lerp(col, bloodShade(e, pos, t, blood_motion), a);
     }
 
     // Puntos blancos sobre negro (antes de abrir la boca)

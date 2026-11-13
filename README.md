@@ -16,7 +16,7 @@ Shaders para **OBS Studio** inspirados en las intros clásicas de películas de 
 | Archivo | Qué hace |
 |---|---|
 | `canon.shader` | La secuencia completa del cañón: puntos blancos sobre negro, el último se abre y deja ver la fuente dentro del cañón estriado, escurre sangre, la boca se cierra y al final se abre a pantalla completa. |
-| `sangre.shader` | Solo la cortina de sangre con chorros irregulares. Sirve como transición sobre cualquier fuente; puede quedarse cubriendo o escurrir y salir por abajo. |
+| `sangre.shader` | Solo la cortina de sangre: chorros que crecen cada uno a su ritmo con gota en la punta, orilla que ondula y gotas que caen. Sirve como transición sobre cualquier fuente; puede quedarse cubriendo o escurrir y salir por abajo. |
 | `titulos.shader` | Fondo de tinta líquida (negro, rojo y dorado) con la fuente convertida en silueta, resplandor en el contorno y caleidoscopio opcional. |
 
 ## Instalación
@@ -48,6 +48,7 @@ Aplícalo a la fuente que debe verse dentro del cañón (tu cámara o la escena 
 | Profundidad | Contraste de los anillos de maquinado y oscurecimiento hacia la orilla |
 | Bamboleo | Cuánto se mueve el cañón como si siguiera a alguien |
 | Sangre / Opacidad / Largo de los chorros | La cortina roja de la mitad de la secuencia |
+| Movimiento de la sangre | Qué tanto ondula, se arrastra y gotea (0 = quieta) |
 
 ## Sangre (`sangre.shader`)
 
@@ -56,6 +57,7 @@ Aplícalo a la fuente que debe verse dentro del cañón (tu cámara o la escena 
 | Duración / Progreso | Igual que en el cañón |
 | Largo / Ancho de los chorros | Qué tanto se adelantan los chorros al resto y qué tan gruesos son |
 | Variación (semilla) | Cambia el dibujo de los chorros |
+| Movimiento | Qué tanto ondula la orilla, se arrastran las puntas y caen gotas sueltas (0 = quieta). Sigue vivo aunque detengas el Progreso |
 | Escurrir al final | La sangre sigue bajando y sale por abajo, dejando la fuente limpia |
 
 ## Títulos con siluetas (`titulos.shader`)
