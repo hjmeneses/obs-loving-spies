@@ -1,4 +1,6 @@
-# obs-spy-intro
+# obs-loving-spies
+
+*Gun-barrel intro, blood drip and silhouette titles for OBS.*
 
 Shaders para **OBS Studio** inspirados en las intros clásicas de películas de espías: la toma a través del cañón de una pistola, la sangre que escurre desde arriba y los créditos con siluetas sobre tinta líquida.
 
@@ -75,7 +77,7 @@ Por sí solo, el shader solo puede correr en bucle porque no sabe cuándo "empie
 
 1. **Herramientas → Scripts → +** y elige `intro-control.lua`.
 2. En **Filtro de intro** elige tu filtro de cañón o sangre (si no aparece, **Actualizar lista**).
-3. Presiona **Reproducir**, o asigna un atajo en **Configuración → Atajos de teclado → Reproducir intro (obs-spy-intro)**.
+3. Presiona **Reproducir**, o asigna un atajo en **Configuración → Atajos de teclado → Reproducir intro (obs-loving-spies)**.
 
 ---
 
@@ -98,7 +100,7 @@ Shaders for **OBS Studio** inspired by classic spy-film intros: the gun-barrel s
 
 Parameter labels are in Spanish. Add the filter with **User-defined shader → Load shader text from file**. For the silhouette shader, the source needs transparency (background removal, chroma key or PNG), or enable *Silueta por brillo* to key on brightness.
 
-To trigger the gun-barrel or blood sequence once with a hotkey, load `intro-control.lua` (**Tools → Scripts**), pick the filter and press *Reproducir*, or bind *Reproducir intro (obs-spy-intro)* under **Settings → Hotkeys**.
+To trigger the gun-barrel or blood sequence once with a hotkey, load `intro-control.lua` (**Tools → Scripts**), pick the filter and press *Reproducir*, or bind *Reproducir intro (obs-loving-spies)* under **Settings → Hotkeys**.
 
 Not affiliated with or endorsed by any film franchise.
 

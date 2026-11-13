@@ -1,5 +1,5 @@
 --[[
-  intro-control.lua — reproduce una vez las intros de obs-spy-intro (canon.shader o
+  intro-control.lua — reproduce una vez las intros de obs-loving-spies (canon.shader o
   sangre.shader) con un botón o un hotkey.
 
   Por qué hace falta: el shader solo conoce el tiempo desde que se creó el filtro, así que por
@@ -8,7 +8,7 @@
 
   Uso: Herramientas → Scripts → "+" → elige este archivo. Elige el filtro en la lista y
   presiona "Reproducir". Para un hotkey: Configuración → Atajos de teclado →
-  "Reproducir intro (obs-spy-intro)".
+  "Reproducir intro (obs-loving-spies)".
 ]]
 
 obs = obslua
@@ -162,7 +162,7 @@ end
 ---------------------------------------------------------------------------
 
 function script_description()
-    return "Reproduce una vez las intros de <b>obs-spy-intro</b> (canon.shader, sangre.shader) " ..
+    return "Reproduce una vez las intros de <b>obs-loving-spies</b> (canon.shader, sangre.shader) " ..
            "con un botón o un hotkey. Apaga el bucle del filtro y anima su Progreso de 0 a 100."
 end
 
@@ -187,16 +187,16 @@ end
 
 function script_load(settings)
     g_target = obs.obs_data_get_string(settings, "target") or ""
-    g_hotkey = obs.obs_hotkey_register_frontend("obs_spy_intro_play", "Reproducir intro (obs-spy-intro)",
+    g_hotkey = obs.obs_hotkey_register_frontend("obs_loving_spies_play", "Reproducir intro (obs-loving-spies)",
         function(pressed) if pressed then play() end end)
-    local saved = obs.obs_data_get_array(settings, "obs_spy_intro_play")
+    local saved = obs.obs_data_get_array(settings, "obs_loving_spies_play")
     obs.obs_hotkey_load(g_hotkey, saved)
     obs.obs_data_array_release(saved)
 end
 
 function script_save(settings)
     local saved = obs.obs_hotkey_save(g_hotkey)
-    obs.obs_data_set_array(settings, "obs_spy_intro_play", saved)
+    obs.obs_data_set_array(settings, "obs_loving_spies_play", saved)
     obs.obs_data_array_release(saved)
 end
 
