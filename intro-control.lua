@@ -28,9 +28,11 @@ local function log(msg)
     obs.script_log(obs.LOG_INFO, msg)
 end
 
-local function is_intro_shader(file)
+-- Solo mira el nombre del archivo, no la carpeta (una carpeta "sangre" no cuenta)
+local function is_intro_shader(path)
+    local name = path:match("[^/\\]+$") or path
     for _, pat in ipairs(SHADER_PATTERN) do
-        if file:find(pat) then return true end
+        if name:find(pat, 1, true) then return true end
     end
     return false
 end
@@ -135,7 +137,8 @@ local function play()
     local d = obs.obs_data_get_double(s, "duration")
     local file = (obs.obs_data_get_string(s, "shader_file_name") or ""):lower()
     obs.obs_data_release(s)
-    -- Si nunca se movió el slider, el valor no está guardado y llega 0: usa el default del shader
+    -- obs-shaderfilter registra los defaults del shader al cargarlo; esto solo cubre el caso
+    -- raro de que el filtro aún no se haya actualizado y llegue 0
     local default = (file:find("sangre") or file:find("blood")) and 4.0 or 10.0
     g_duration = (d and d > 0) and d or default
 
@@ -177,7 +180,7 @@ function script_properties()
         return true
     end)
     obs.obs_properties_add_button(props, "play", "Reproducir", function() play(); return false end)
-    obs.obs_properties_add_button(props, "reset", "Volver al inicio (negro)", function() reset(); return false end)
+    obs.obs_properties_add_button(props, "reset", "Volver al inicio (Progreso 0)", function() reset(); return false end)
     return props
 end
 

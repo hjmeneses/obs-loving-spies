@@ -47,7 +47,7 @@ Aplícalo a la fuente que debe verse dentro del cañón (tu cámara o la escena 
 | Estrías / Torsión / Giro | Número de estrías, cuánto se tuercen en espiral y velocidad de giro |
 | Profundidad | Contraste de los anillos de maquinado y oscurecimiento hacia la orilla |
 | Bamboleo | Cuánto se mueve el cañón como si siguiera a alguien |
-| Sangre / Opacidad / Largo de los chorros | La cortina roja de la mitad de la secuencia |
+| Sangre / Opacidad / Largo de los chorros | La cortina roja de la mitad de la secuencia. Con opacidad menor a 1 la fuente se transparenta a través de la sangre |
 | Movimiento de la sangre | Qué tanto ondula, se arrastra y gotea (0 = quieta) |
 
 ## Sangre (`sangre.shader`)
@@ -55,6 +55,7 @@ Aplícalo a la fuente que debe verse dentro del cañón (tu cámara o la escena 
 | Parámetro | Efecto |
 |---|---|
 | Duración / Progreso | Igual que en el cañón |
+| Opacidad | 1 tapa la fuente por completo; con menos, se transparenta |
 | Largo / Ancho de los chorros | Qué tanto se adelantan los chorros al resto y qué tan gruesos son |
 | Variación (semilla) | Cambia el dibujo de los chorros |
 | Movimiento | Qué tanto ondula la orilla, se arrastran las puntas y caen gotas sueltas (0 = quieta). Sigue vivo aunque detengas el Progreso |
@@ -80,6 +81,8 @@ Por sí solo, el shader solo puede correr en bucle porque no sabe cuándo "empie
 1. **Herramientas → Scripts → +** y elige `intro-control.lua`.
 2. En **Filtro de intro** elige tu filtro de cañón o sangre (si no aparece, **Actualizar lista**).
 3. Presiona **Reproducir**, o asigna un atajo en **Configuración → Atajos de teclado → Reproducir intro (obs-loving-spies)**.
+
+No está afiliado ni respaldado por ninguna franquicia de cine.
 
 ---
 

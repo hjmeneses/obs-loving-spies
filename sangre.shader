@@ -22,13 +22,15 @@ uniform float progress<
     float minimum = 0.0; float maximum = 100.0; float step = 0.1;
 > = 50.0;
 
-uniform float4 blood_color = {0.55, 0.0, 0.02, 1.0};
+uniform float4 blood_color<
+    string label = "Color de la sangre";
+> = {0.55, 0.0, 0.02, 1.0};
 
 uniform float blood_opacity<
     string label = "Opacidad";
     string widget_type = "slider";
     float minimum = 0.0; float maximum = 1.0; float step = 0.01;
-> = 0.9;
+> = 1.0;
 
 uniform float drip_length<
     string label = "Largo de los chorros (% del alto)";
@@ -94,8 +96,13 @@ float unevenCapsule(float2 p, float r1, float r2, float h)
 float bloodField(float2 pos, float level, float H, float cell, float drip_len, float sd, float t, float mv)
 {
     float x = pos.x;
-    float front = lerp(-drip_len - 4.0, H + 4.0, level);
-    front += sin(x * 0.013 + sd) * cell * 0.15
+    // Margen fuera de pantalla: la orilla ondula hasta 0.535 celdas + 6 % del largo de los chorros
+    // y la gota de la punta mide hasta 0.175 celdas, así que con level 0 no asoma nada y con
+    // level 1 cubre hasta el último píxel.
+    float mg = cell * 0.8 + drip_len * 0.06 + 4.0;
+    float front = lerp(-drip_len - mg, H + mg, level);
+    front += sin(x * 0.006 + sd * 1.7) * (cell * 0.3 + drip_len * 0.06)
+           + sin(x * 0.013 + sd) * cell * 0.15
            + sin(x * 0.031 + sd * 2.0 + t * 1.1) * cell * (0.03 + 0.03 * mv)
            + sin(x * 0.071 - t * 1.9 + sd) * cell * 0.025 * mv;
     float d = pos.y - front;
@@ -118,9 +125,10 @@ float bloodField(float2 pos, float level, float H, float cell, float drip_len, f
         float rb = hw * lerp(0.35, 0.62, g);
         float tip = front + max(ext - rb, 0.0);
         float top = front - hw;
-        float len = max(tip - top, hw - rb * 0.6 + 1.0);
+        float nk = max(rb * 0.75, cell * 0.08);               // cuello: nunca una varilla fina
+        float len = max(tip - top, hw - nk + 1.0);
 
-        float dc = unevenCapsule(float2(x - cx, pos.y - top), hw, rb * 0.6, len);
+        float dc = unevenCapsule(float2(x - cx, pos.y - top), hw, nk, len);
         dc = smin(dc, length(float2(x - cx, pos.y - tip)) - rb, rb * 0.6);
         d = smin(d, dc, cell * 0.12);
 
@@ -138,12 +146,16 @@ float bloodField(float2 pos, float level, float H, float cell, float drip_len, f
 
 // Color según e (px hacia adentro): orilla oscura, brillo húmedo que sigue la forma de cada
 // chorro (luz desde arriba a la izquierda) y vetas que fluyen hacia abajo por dentro.
-float3 bloodShade(float e, float2 pos, float t, float mv)
+// Las vetas tienen periodo irregular (x deformada) y poco contraste, y se desvanecen lejos de la
+// orilla: con periodo fijo y mucho contraste la cortina parecía tela.
+float3 bloodShade(float e, float2 pos, float t, float mv, float cell)
 {
     float3 c = blood_color.rgb * lerp(0.55, 1.0, smoothstep(0.0, 5.0, e));
 
-    float flow = 0.5 + 0.5 * sin(pos.x * 0.09 + 2.0 * sin(pos.y * 0.012 - t * 0.9 * mv + pos.x * 0.01));
-    c *= lerp(1.0, lerp(0.82, 1.08, flow), smoothstep(6.0, 20.0, e));
+    float wx = pos.x + 18.0 * sin(pos.x * 0.017 + 1.3) + 11.0 * sin(pos.x * 0.041 + 4.0);
+    float flow = 0.5 + 0.5 * sin(wx * 0.07 + 2.0 * sin(pos.y * 0.012 - t * 0.9 * mv + pos.x * 0.01));
+    float streak = smoothstep(6.0, 20.0, e) * lerp(0.5, 1.0, 1.0 - smoothstep(cell * 1.5, cell * 5.0, e));
+    c *= lerp(1.0, lerp(0.86, 1.05, flow), streak);
 
     float2 gr = float2(ddx(e), ddy(e));
     float2 n = -gr / max(length(gr), 1e-4);
@@ -179,7 +191,7 @@ float4 mainImage(VertData v_in) : TARGET
         e = min(e, -et);
     }
 
-    float3 bc = bloodShade(e, pos, t, motion);
+    float3 bc = bloodShade(e, pos, t, motion, cell);
     float a = m * blood_opacity;
     return float4(lerp(src.rgb, bc, a), max(src.a, a));
 }

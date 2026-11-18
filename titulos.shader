@@ -19,9 +19,15 @@ uniform bool luma_invert<
     string label = "Invertir silueta (lo oscuro es la figura)";
 > = false;
 
-uniform float4 color_dark = {0.02, 0.02, 0.05, 1.0};
-uniform float4 color_gold = {0.85, 0.62, 0.20, 1.0};
-uniform float4 color_red = {0.60, 0.02, 0.05, 1.0};
+uniform float4 color_dark<
+    string label = "Color del fondo (oscuro)";
+> = {0.02, 0.02, 0.05, 1.0};
+uniform float4 color_gold<
+    string label = "Color dorado";
+> = {0.85, 0.62, 0.20, 1.0};
+uniform float4 color_red<
+    string label = "Color rojo";
+> = {0.60, 0.02, 0.05, 1.0};
 
 uniform float pattern_scale<
     string label = "Escala del fondo";
@@ -48,7 +54,9 @@ uniform float kaleido_spin<
     float minimum = -60.0; float maximum = 60.0; float step = 0.5;
 > = 6.0;
 
-uniform float4 silhouette_color = {0.0, 0.0, 0.0, 1.0};
+uniform float4 silhouette_color<
+    string label = "Color de la silueta";
+> = {0.0, 0.0, 0.0, 1.0};
 
 // 0 = silueta de color sólido; 1 = la silueta muestra el fondo en negativo (rojo↔dorado).
 uniform float silhouette_pattern<
@@ -57,7 +65,9 @@ uniform float silhouette_pattern<
     float minimum = 0.0; float maximum = 1.0; float step = 0.01;
 > = 0.0;
 
-uniform float4 glow_color = {1.0, 0.75, 0.3, 1.0};
+uniform float4 glow_color<
+    string label = "Color del resplandor";
+> = {1.0, 0.75, 0.3, 1.0};
 
 uniform float glow_strength<
     string label = "Resplandor del contorno";
@@ -156,17 +166,19 @@ float4 mainImage(VertData v_in) : TARGET
     float4 src = image.Sample(textureSampler, uv);
     float m = silMask(uv);
 
-    // Resplandor exterior: máscara promediada en dos anillos, solo fuera de la figura
+    // Resplandor exterior: máscara promediada en tres anillos de 8 muestras, cada anillo girado
+    // 15° respecto al anterior para que con anchos grandes no se formen picos. Solo fuera de la figura
     float blurred = 0.0;
     float fi = 0.0;
-    for (int i = 0; i < 12; i++) {
-        float a = fi * 0.5235988;
-        float rr = (fmod(fi, 2.0) < 0.5) ? 0.5 : 1.0;
+    for (int i = 0; i < 24; i++) {
+        float ring = floor(fi / 8.0);
+        float a = (fi - ring * 8.0) * 0.7853982 + ring * 0.2617994;
+        float rr = (ring + 1.0) / 3.0;
         float2 o = float2(cos(a), sin(a)) * glow_size * rr * uv_pixel_interval;
         blurred += silMask(uv + o);
         fi += 1.0;
     }
-    blurred /= 12.0;
+    blurred /= 24.0;
     float glow = blurred * (1.0 - m) * glow_strength;
 
     // Negativo del fondo para el relleno con patrón: intercambia rojo y dorado
