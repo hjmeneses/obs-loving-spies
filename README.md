@@ -6,6 +6,8 @@ Shaders para **OBS Studio** inspirados en las intros clásicas de películas de 
 
 *[English below](#english)*
 
+<sub>Las animaciones de este README son simulaciones aproximadas de los shaders con una figura de ejemplo; en OBS algunos detalles varían. / The animations are approximate simulations of the shaders.</sub>
+
 ## Requisitos
 
 - OBS Studio
@@ -27,6 +29,8 @@ Shaders para **OBS Studio** inspirados en las intros clásicas de películas de 
 4. Ajusta los parámetros.
 
 ## Cañón (`canon.shader`)
+
+![Puntos blancos, el cañón estriado sigue a la figura, escurre la sangre y la boca se abre a pantalla completa](images/canon.gif)
 
 Aplícalo a la fuente que debe verse dentro del cañón (tu cámara o la escena completa). Si la fuente tiene transparencia, por ejemplo una cámara con quitado de fondo, dentro de la boca se ve sobre blanco como en el clásico; el color se cambia en **inner_bg**.
 
@@ -52,6 +56,10 @@ Aplícalo a la fuente que debe verse dentro del cañón (tu cámara o la escena 
 
 ## Sangre (`sangre.shader`)
 
+![La sangre cubre la escena y escurre hacia abajo dejándola limpia](images/sangre.gif)
+
+<sub>Con <b>Escurrir al final</b> activado.</sub>
+
 | Parámetro | Efecto |
 |---|---|
 | Duración / Progreso | Igual que en el cañón |
@@ -62,6 +70,8 @@ Aplícalo a la fuente que debe verse dentro del cañón (tu cámara o la escena 
 | Escurrir al final | La sangre sigue bajando y sale por abajo, dejando la fuente limpia |
 
 ## Títulos con siluetas (`titulos.shader`)
+
+![Tinta líquida roja y dorada con la figura y el texto convertidos en silueta](images/titulos.gif)
 
 La silueta sale de la **transparencia** de la fuente: funciona mejor con una cámara con quitado de fondo, chroma key o un PNG. Si tu fuente no tiene transparencia, activa **Silueta por brillo** y ajusta el umbral.
 
