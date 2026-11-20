@@ -53,6 +53,7 @@ Aplícalo a la fuente que debe verse dentro del cañón (tu cámara o la escena 
 | Bamboleo | Cuánto se mueve el cañón como si siguiera a alguien |
 | Sangre / Opacidad / Largo de los chorros | La cortina roja de la mitad de la secuencia. Con opacidad menor a 1 la fuente se transparenta a través de la sangre |
 | Movimiento de la sangre | Qué tanto ondula, se arrastra y gotea (0 = quieta) |
+| Fusión de la sangre | Cómo se mezcla la sangre con lo que hay debajo, como en Photoshop (ver abajo) |
 
 ## Sangre (`sangre.shader`)
 
@@ -68,6 +69,22 @@ Aplícalo a la fuente que debe verse dentro del cañón (tu cámara o la escena 
 | Variación (semilla) | Cambia el dibujo de los chorros |
 | Movimiento | Qué tanto ondula la orilla, se arrastran las puntas y caen gotas sueltas (0 = quieta). Sigue vivo aunque detengas el Progreso |
 | Escurrir al final | La sangre sigue bajando y sale por abajo, dejando la fuente limpia |
+| Fusión de la sangre | Cómo se mezcla la sangre con la fuente (ver abajo) |
+
+### Fusión de la sangre
+
+Los dos shaders tienen los mismos métodos de fusión, con las fórmulas de Photoshop:
+
+| Modo | Cómo se ve |
+|---|---|
+| Normal | Sangre sólida que tapa lo de abajo |
+| Multiplicar | Mancha translúcida: lo claro se tiñe de rojo, lo oscuro casi no cambia |
+| Oscurecer | Parecido a Multiplicar, pero solo oscurece donde la sangre es más oscura |
+| Subexponer color | Muy contrastado: lo claro queda rojo intenso, el resto casi negro |
+| Superponer / Luz suave | Tinte rojizo suave que respeta luces y sombras |
+| Luz fuerte | Como Normal en las sombras, pero las zonas claras quedan rojo vivo |
+| Color | Pinta de rojo conservando la luz de la fuente |
+| Trama (Screen) | Solo aclara: un brillo rojizo que se nota en lo oscuro y desaparece en lo claro. Con un color de sangre más claro se ve más |
 
 ## Títulos con siluetas (`titulos.shader`)
 
@@ -111,6 +128,8 @@ Shaders for **OBS Studio** inspired by classic spy-film intros: the gun-barrel s
 |---|---|
 | `canon.shader` | Full gun-barrel sequence: white dots on black, the last one opens into the rifled barrel with your source inside, blood drips down, the aperture closes and finally opens to full screen. |
 | `sangre.shader` | Blood curtain with irregular drips. Works as a transition over any source; it can stay covering or drain out the bottom. |
+
+The blood in both `canon.shader` and `sangre.shader` has Photoshop-style blend modes (*Fusión de la sangre*): normal, multiply, darken, color burn, overlay, soft light, hard light, color and screen.
 | `titulos.shader` | Liquid-ink background (black, red and gold) with your source turned into a silhouette, edge glow and optional kaleidoscope. |
 
 Parameter labels are in Spanish. Add the filter with **User-defined shader → Load shader text from file**. For the silhouette shader, the source needs transparency (background removal, chroma key or PNG), or enable *Silueta por brillo* to key on brightness.

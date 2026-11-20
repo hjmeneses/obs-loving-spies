@@ -32,6 +32,20 @@ uniform float blood_opacity<
     float minimum = 0.0; float maximum = 1.0; float step = 0.01;
 > = 1.0;
 
+uniform int blend_mode<
+    string label = "Fusion de la sangre";
+    string widget_type = "select";
+    int    option_0_value = 0; string option_0_label = "Normal";
+    int    option_1_value = 1; string option_1_label = "Multiplicar";
+    int    option_2_value = 2; string option_2_label = "Oscurecer";
+    int    option_3_value = 3; string option_3_label = "Subexponer color";
+    int    option_4_value = 4; string option_4_label = "Superponer";
+    int    option_5_value = 5; string option_5_label = "Luz suave";
+    int    option_6_value = 6; string option_6_label = "Luz fuerte";
+    int    option_7_value = 7; string option_7_label = "Color";
+    int    option_8_value = 8; string option_8_label = "Trama (Screen)";
+> = 0;
+
 uniform float drip_length<
     string label = "Largo de los chorros (% del alto)";
     string widget_type = "slider";
@@ -165,6 +179,45 @@ float3 bloodShade(float e, float2 pos, float t, float mv, float cell)
     return c;
 }
 
+// Métodos de fusión (fórmulas de Photoshop / W3C): b = lo que hay debajo, s = la sangre
+float lum(float3 c)
+{
+    return dot(c, float3(0.3, 0.59, 0.11));
+}
+
+float3 softLightD(float3 b)
+{
+    float3 poly = ((16.0 * b - 12.0) * b + 4.0) * b;
+    return lerp(poly, sqrt(b), step(0.25, b));
+}
+
+float3 blendBlood(float3 b, float3 s, int mode)
+{
+    b = saturate(b);
+    s = saturate(s);
+    if (mode == 1) return b * s;                                        // Multiplicar
+    if (mode == 2) return min(b, s);                                    // Oscurecer
+    if (mode == 8) return 1.0 - (1.0 - b) * (1.0 - s);                  // Trama (Screen)
+    if (mode == 3) return 1.0 - min((1.0 - b) / max(s, 0.001), 1.0);   // Subexponer color
+    if (mode == 4)                                                      // Superponer
+        return lerp(2.0 * b * s, 1.0 - 2.0 * (1.0 - b) * (1.0 - s), step(0.5, b));
+    if (mode == 5)                                                      // Luz suave
+        return lerp(b - (1.0 - 2.0 * s) * b * (1.0 - b),
+                    b + (2.0 * s - 1.0) * (softLightD(b) - b), step(0.5, s));
+    if (mode == 6)                                                      // Luz fuerte
+        return lerp(2.0 * b * s, 1.0 - 2.0 * (1.0 - b) * (1.0 - s), step(0.5, s));
+    if (mode == 7) {                                                    // Color
+        float3 c = s + (lum(b) - lum(s));
+        float l = lum(c);
+        float n = min(min(c.r, c.g), c.b);
+        float x = max(max(c.r, c.g), c.b);
+        if (n < 0.0) c = l + (c - l) * l / max(l - n, 1e-4);
+        if (x > 1.0) c = l + (c - l) * (1.0 - l) / max(x - l, 1e-4);
+        return c;
+    }
+    return s;                                                           // Normal
+}
+
 // ---------------------------------------------------------------------------------------------
 
 float4 mainImage(VertData v_in) : TARGET
@@ -191,7 +244,7 @@ float4 mainImage(VertData v_in) : TARGET
         e = min(e, -et);
     }
 
-    float3 bc = bloodShade(e, pos, t, motion, cell);
+    float3 bc = blendBlood(src.rgb, bloodShade(e, pos, t, motion, cell), blend_mode);
     float a = m * blood_opacity;
     return float4(lerp(src.rgb, bc, a), max(src.a, a));
 }
