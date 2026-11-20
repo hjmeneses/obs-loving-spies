@@ -69,11 +69,11 @@ uniform float grooves<
     float minimum = 2.0; float maximum = 16.0; float step = 1.0;
 > = 6.0;
 
-// Cuánto se tuercen las estrías hacia afuera. 0 = rayos rectos; ±1 = espiral marcada.
+// Cuánto se tuercen las estrías hacia la boca. 0 = rayos rectos; ±1 = espiral marcada.
 uniform float twist<
     string label = "Torsion de las estrias";
     string widget_type = "slider";
-    float minimum = -3.0; float maximum = 3.0; float step = 0.01;
+    float minimum = -1.5; float maximum = 1.5; float step = 0.01;
 > = 0.9;
 
 uniform float spin<
@@ -247,26 +247,68 @@ float3 bloodShade(float e, float2 pos, float t, float mv, float cell)
 
 // ---------------------------------------------------------------------------------------------
 
+// Cuánto se tuercen las ranuras y los reflejos respecto al slider "Torsión". Las ranuras
+// combinan la profundidad (se aprietan hacia la boca) con log r (siguen girando lejos de ella).
+#define TWIST_DARK  2.0
+#define TWIST_LOG   0.8
+#define TWIST_LIGHT 3.5
+// Ranuras: brillo (0 = negro) y suavidad extra del borde, en fracción de estría
+#define GROOVE_DARK 0.18
+#define GROOVE_SOFT 0.03
+// Qué tanto se acerca el reflejo al blanco (0 = mismo color que el metal, 1 = blanco)
+#define SPEC_WHITE  0.6
+
 // Interior del cañón visto desde la recámara: estrías en espiral, anillos de maquinado y luz
 // que entra por la boca (más claro junto a ella, oscuro hacia la orilla de la pantalla).
 float3 barrelColor(float2 d, float r, float R, float t)
 {
-    float ang = atan2(d.y, d.x) * 0.15915494;                 // en vueltas, -0.5..0.5
-    float lr = log(max(r, 1.0) / max(R, 1.0));                 // 0 en la boca, crece afuera
+    float ang = atan2(d.y, d.x) * 0.15915494;       // en vueltas, -0.5..0.5
+    float z = R / max(r, 1.0);                       // profundidad en perspectiva: 1 en la boca, ->0 afuera
+    float lr = log(max(r, 1.0) / max(R, 1.0));       // 0 en la boca, crece afuera (caída de luz)
     float n = max(floor(grooves + 0.5), 1.0);
-    float g = frac((ang + spin * t / 360.0) * n + twist * lr);
+    float rot = spin * t / 360.0;
 
-    // Perfil de una estría: meseta, flanco iluminado, ranura oscura
-    float land = smoothstep(0.02, 0.10, g) * (1.0 - smoothstep(0.50, 0.58, g));
-    float lit = smoothstep(0.50, 0.55, g) * (1.0 - smoothstep(0.58, 0.66, g));
-    float shade = lerp(0.35, 0.9, land) + 0.45 * lit;
+    // 1. Ranuras oscuras: giran con el cañón y se enroscan. La profundidad z aprieta la espiral
+    //    hacia la boca, como un tubo en perspectiva; log r (con signo contrario, porque crece
+    //    hacia afuera) mantiene el giro lejos de ella, donde z ya casi no cambia.
+    float g_dark = frac((ang + rot) * n + twist * (TWIST_DARK * z - TWIST_LOG * lr));
+    float fw_d = min(fwidth(g_dark) * 1.5, 0.08) + GROOVE_SOFT;
+    float groove = smoothstep(0.20 - fw_d, 0.20 + fw_d, g_dark)
+                 * (1.0 - smoothstep(0.50 - fw_d, 0.50 + fw_d, g_dark));
 
-    float rings = 0.5 + 0.5 * cos(lr * 22.0);
-    shade *= lerp(1.0, 0.8 + 0.2 * rings, depth);
+    // 2. Reflejo especular: gira con el cañón (mismo rot que las ranuras, para que no se
+    //    despegue del metal) y se enrosca con fuerza hacia la boca
+    float g_light = frac((ang + rot) * n + twist * TWIST_LIGHT * z);
+    float fw_l = min(fwidth(g_light) * 1.5, 0.08);
+    float spec_band = smoothstep(0.42 - fw_l, 0.48 + fw_l, g_light)
+                    * (1.0 - smoothstep(0.52 - fw_l, 0.58 + fw_l, g_light));
 
-    float fall = exp(-max(lr, 0.0) * lerp(0.6, 1.8, depth));
-    float rim = exp(-max(r - R, 0.0) / max(R * 0.05, 1.0)) * 0.5;
-    return metal_color.rgb * shade * fall + rim;
+    // Luz fija de la escena: dos lóbulos opuestos, como el reflejo dentro de un tubo. No lleva
+    // rot: la luz se queda quieta y el cañón gira debajo. Junto a la boca se vuelve pareja.
+    float tube_lobe = 0.35 + 0.65 * pow(abs(cos((ang + twist * 0.25 * z) * 6.28318531)), 1.5);
+    tube_lobe = lerp(tube_lobe, 1.0, z * z * z);
+
+    // 3. Composición: el reflejo pasa por encima de mesetas y ranuras por igual
+    float base_metal = lerp(0.85, GROOVE_DARK, groove);  // meseta clara vs ranura oscura
+    float light_curve = spec_band * 0.7;
+
+    // Textura de metal maquinado a lo largo de las estrías (±4 %)
+    float brush = 0.96 + 0.08 * hash11(floor(g_dark * 96.0));
+
+    // Anillos de torneado parejos en profundidad (más juntos al fondo) y caída de luz
+    float rings = 0.5 + 0.5 * cos(z * 56.5486678);   // 9 anillos de la orilla a la boca
+    float ring_shade = lerp(1.0, 0.88 + 0.12 * rings, depth);
+    float fall = exp(-max(lr, 0.0) * lerp(0.5, 1.6, depth));
+
+    float3 col = metal_color.rgb * (base_metal * tube_lobe * brush)
+               + lerp(metal_color.rgb, float3(1.0, 1.0, 1.0), SPEC_WHITE) * light_curve;
+    col *= ring_shade * fall;
+
+    // Dither: evita escalones en los degradados oscuros (8 bits + compresión del stream)
+    col += (hash11(dot(floor(d), float2(1.0, 157.0))) - 0.5) / 255.0;
+
+    float rim = exp(-max(r - R, 0.0) / max(R * 0.035, 1.0)) * 0.65;
+    return col + rim;
 }
 
 float4 mainImage(VertData v_in) : TARGET
