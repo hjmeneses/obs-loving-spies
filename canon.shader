@@ -247,15 +247,19 @@ float3 bloodShade(float e, float2 pos, float t, float mv, float cell)
 
 // ---------------------------------------------------------------------------------------------
 
-// Interior del cañón visto desde la recámara: estrías en espiral, anillos de maquinado y luz
-// que entra por la boca (más claro junto a ella, oscuro hacia la orilla de la pantalla).
-// Cuánto se tuercen las ranuras y los reflejos respecto al slider "Torsión". Ranuras casi
-// rectas y reflejos que se enroscan hacia la boca dan el look de la toma clásica.
-#define TWIST_DARK  0.6
+// Cuánto se tuercen las ranuras y los reflejos respecto al slider "Torsión". Las ranuras
+// combinan la profundidad (se aprietan hacia la boca) con log r (siguen girando lejos de ella).
+#define TWIST_DARK  2.0
+#define TWIST_LOG   0.8
 #define TWIST_LIGHT 3.5
+// Ranuras: brillo (0 = negro) y suavidad extra del borde, en fracción de estría
+#define GROOVE_DARK 0.18
+#define GROOVE_SOFT 0.03
 // Qué tanto se acerca el reflejo al blanco (0 = mismo color que el metal, 1 = blanco)
 #define SPEC_WHITE  0.6
 
+// Interior del cañón visto desde la recámara: estrías en espiral, anillos de maquinado y luz
+// que entra por la boca (más claro junto a ella, oscuro hacia la orilla de la pantalla).
 float3 barrelColor(float2 d, float r, float R, float t)
 {
     float ang = atan2(d.y, d.x) * 0.15915494;       // en vueltas, -0.5..0.5
@@ -264,12 +268,13 @@ float3 barrelColor(float2 d, float r, float R, float t)
     float n = max(floor(grooves + 0.5), 1.0);
     float rot = spin * t / 360.0;
 
-    // 1. Ranuras oscuras: giran con el cañón y apenas se tuercen. Al usar la profundidad z
-    //    (y no log r) la espiral se aprieta sola hacia la boca, como un tubo en perspectiva.
-    float g_dark = frac((ang + rot) * n + twist * TWIST_DARK * z);
-    float fw_d = min(fwidth(g_dark) * 1.5, 0.08);
-    float groove = smoothstep(0.18 - fw_d, 0.18 + fw_d, g_dark)
-                 * (1.0 - smoothstep(0.52 - fw_d, 0.52 + fw_d, g_dark));
+    // 1. Ranuras oscuras: giran con el cañón y se enroscan. La profundidad z aprieta la espiral
+    //    hacia la boca, como un tubo en perspectiva; log r (con signo contrario, porque crece
+    //    hacia afuera) mantiene el giro lejos de ella, donde z ya casi no cambia.
+    float g_dark = frac((ang + rot) * n + twist * (TWIST_DARK * z - TWIST_LOG * lr));
+    float fw_d = min(fwidth(g_dark) * 1.5, 0.08) + GROOVE_SOFT;
+    float groove = smoothstep(0.20 - fw_d, 0.20 + fw_d, g_dark)
+                 * (1.0 - smoothstep(0.50 - fw_d, 0.50 + fw_d, g_dark));
 
     // 2. Reflejo especular: gira con el cañón (mismo rot que las ranuras, para que no se
     //    despegue del metal) y se enrosca con fuerza hacia la boca
@@ -283,9 +288,9 @@ float3 barrelColor(float2 d, float r, float R, float t)
     float tube_lobe = 0.35 + 0.65 * pow(abs(cos((ang + twist * 0.25 * z) * 6.28318531)), 1.5);
     tube_lobe = lerp(tube_lobe, 1.0, z * z * z);
 
-    // 3. Composición: las ranuras mandan; el reflejo va sobre las mesetas
-    float base_metal = lerp(0.85, 0.04, groove);     // meseta clara vs ranura negra
-    float light_curve = spec_band * (1.0 - groove * 0.85) * 0.55;
+    // 3. Composición: el reflejo pasa por encima de mesetas y ranuras por igual
+    float base_metal = lerp(0.85, GROOVE_DARK, groove);  // meseta clara vs ranura oscura
+    float light_curve = spec_band * 0.7;
 
     // Textura de metal maquinado a lo largo de las estrías (±4 %)
     float brush = 0.96 + 0.08 * hash11(floor(g_dark * 96.0));
