@@ -2,9 +2,12 @@
 // (plugin obs-shaderfilter, modo "User-defined shader").
 //
 // Secuencia completa (Progreso 0 → 100):
-//   0–24   Puntos blancos aparecen uno tras otro sobre negro, de izquierda a derecha.
-//   24–32  El último punto se abre: adentro aparece la fuente, afuera el cañón estriado.
-//   32–60  El cañón gira y se bambolea siguiendo a la fuente.
+//   0–24   Un punto blanco (del tamaño de la boca cerrada) cruza la pantalla de izquierda a
+//          derecha dejando sombras fijas que se apagan una tras otra.
+//   24–32  Al tocar la orilla derecha se ensancha hasta el Radio de la boca: adentro aparece
+//          la fuente, afuera el cañón estriado.
+//   30–55  El cañón se desliza hasta el centro, como si siguiera a la fuente.
+//   32–60  El cañón gira y se bambolea.
 //   60–76  Escurre sangre desde arriba y cubre la pantalla.
 //   76–88  El cañón cae y tiembla; la boca se cierra a un círculo chico con la fuente limpia.
 //   88–97  El círculo se abre a pantalla completa. 97–100: fuente sola.
@@ -32,7 +35,7 @@ uniform float progress<
 > = 45.0;
 
 uniform float center_x<
-    string label = "Centro X (%)";
+    string label = "Centro X (%) (a donde llega el canon)";
     string widget_type = "slider";
     float minimum = 0.0; float maximum = 100.0; float step = 0.1;
 > = 50.0;
@@ -53,15 +56,22 @@ uniform float4 inner_bg<
     string label = "Fondo dentro de la boca (fuente con transparencia)";
 > = {1.0, 1.0, 1.0, 1.0};
 
+// Un solo tamaño para el punto del inicio y la boca cerrada del final
+uniform float small_size<
+    string label = "Tamaño del punto y de la boca cerrada (% del radio)";
+    string widget_type = "slider";
+    float minimum = 10.0; float maximum = 100.0; float step = 1.0;
+> = 40.0;
+
 uniform bool show_dots<
-    string label = "Puntos blancos al inicio";
+    string label = "Punto blanco al inicio";
 > = true;
 
-uniform float dot_count<
-    string label = "Cantidad de puntos";
+uniform float dot_trail<
+    string label = "Sombras del punto";
     string widget_type = "slider";
-    float minimum = 1.0; float maximum = 6.0; float step = 1.0;
-> = 3.0;
+    float minimum = 0.0; float maximum = 6.0; float step = 1.0;
+> = 5.0;
 
 uniform float grooves<
     string label = "Estrias del canon";
@@ -132,6 +142,12 @@ uniform float drip_length<
     string widget_type = "slider";
     float minimum = 0.0; float maximum = 80.0; float step = 0.5;
 > = 35.0;
+
+uniform float drip_width<
+    string label = "Ancho de los chorros (% del alto)";
+    string widget_type = "slider";
+    float minimum = 1.0; float maximum = 20.0; float step = 0.1;
+> = 5.5;
 
 uniform float blood_motion<
     string label = "Movimiento de la sangre (0 = quieta)";
@@ -238,18 +254,54 @@ float bloodField(float2 pos, float level, float H, float cell, float drip_len, f
     return -d;
 }
 
+// Ruido de valor sin sin() (ver hash11)
+float hash21(float2 p)
+{
+    float3 p3 = frac(float3(p.x, p.y, p.x) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return frac((p3.x + p3.y) * p3.z);
+}
+
+float vnoise(float2 p)
+{
+    float2 i = floor(p);
+    float2 f = p - i;
+    float2 u = f * f * (3.0 - 2.0 * f);
+    float a = hash21(i);
+    float b = hash21(i + float2(1.0, 0.0));
+    float c = hash21(i + float2(0.0, 1.0));
+    float d = hash21(i + float2(1.0, 1.0));
+    return lerp(lerp(a, b, u.x), lerp(c, d, u.x), u.y);
+}
+
+// Relieve de la capa de sangre (0–1, alto = más gruesa): ruido estirado en vertical que baja con
+// el tiempo y serpentea un poco, como líquido que escurre. Sin periodo fijo, así no parece tela.
+float bloodHeight(float2 pos, float t, float mv, float cell)
+{
+    float y = pos.y - t * mv * cell * 0.9;
+    float x = pos.x + cell * 1.2 * (vnoise(float2(pos.x, y) / (cell * 6.0)) - 0.5);
+    float2 q = float2(x / (cell * 1.3), y / (cell * 7.0));
+    return 0.6 * vnoise(q) + 0.3 * vnoise(q * 2.03 + float2(17.0, 5.0))
+         + 0.1 * vnoise(q * 4.1 + float2(41.0, 23.0));
+}
+
 // Color según e (px hacia adentro): orilla oscura, brillo húmedo que sigue la forma de cada
-// chorro (luz desde arriba a la izquierda) y vetas que fluyen hacia abajo por dentro.
-// Las vetas tienen periodo irregular (x deformada) y poco contraste, y se desvanecen lejos de la
-// orilla: con periodo fijo y mucho contraste la cortina parecía tela.
+// chorro (luz desde arriba a la izquierda) y, por dentro, una capa de grosor irregular: más
+// oscura donde es gruesa y con reflejos suaves donde el relieve mira hacia la luz.
 float3 bloodShade(float e, float2 pos, float t, float mv, float cell)
 {
-    float3 c = blood_color.rgb * lerp(0.55, 1.0, smoothstep(0.0, 5.0, e));
+    float deep = smoothstep(4.0, 24.0, e);                    // el relieve aparece lejos de la orilla
+    float h = bloodHeight(pos, t, mv, cell);
+    float hx = bloodHeight(pos + float2(1.0, 0.0), t, mv, cell) - h;
+    float hy = bloodHeight(pos + float2(0.0, 1.0), t, mv, cell) - h;
 
-    float wx = pos.x + 18.0 * sin(pos.x * 0.017 + 1.3) + 11.0 * sin(pos.x * 0.041 + 4.0);
-    float flow = 0.5 + 0.5 * sin(wx * 0.07 + 2.0 * sin(pos.y * 0.012 - t * 0.9 * mv + pos.x * 0.01));
-    float streak = smoothstep(6.0, 20.0, e) * lerp(0.5, 1.0, 1.0 - smoothstep(cell * 1.5, cell * 5.0, e));
-    c *= lerp(1.0, lerp(0.86, 1.05, flow), streak);
+    float3 c = blood_color.rgb * lerp(0.55, 1.0, smoothstep(0.0, 5.0, e))
+             * lerp(1.0, lerp(1.06, 0.8, h), deep);
+
+    float k = cell * deep;
+    float3 nrm = normalize(float3(-hx * k, -hy * k, 1.0));
+    float3 hv = normalize(normalize(float3(-0.35, -0.6, 0.72)) + float3(0.0, 0.0, 1.0));
+    c += pow(saturate(dot(nrm, hv)), 24.0) * 0.15 * deep * float3(1.0, 0.8, 0.8);
 
     float2 gr = float2(ddx(e), ddy(e));
     float2 n = -gr / max(length(gr), 1e-4);
@@ -385,7 +437,11 @@ float4 mainImage(VertData v_in) : TARGET
     }
 
     float R0 = aperture * 0.01 * H;
+    float Rs = R0 * small_size * 0.01;   // tamaño del punto = tamaño al cerrar
     float2 C0 = float2(center_x, center_y) * 0.01 * uv_size;
+    // La boca se abre donde se detuvo el punto (tocando la orilla derecha) y se desliza al centro
+    float2 Copen = show_dots ? float2(uv_size.x - Rs, C0.y) : C0;
+    float2 Ctrack = lerp(Copen, C0, ease(seg(p, 0.30, 0.55)));
 
     // Movimiento: bamboleo mientras el cañón sigue a la fuente, caída y temblor al cerrar
     float cl = ease(pc);
@@ -394,9 +450,9 @@ float4 mainImage(VertData v_in) : TARGET
         sin(t * 0.9) + 0.5 * sin(t * 2.3 + 1.0),
         0.6 * sin(t * 1.3 + 2.0) + 0.3 * sin(t * 3.1));
     float2 shake = cl * settle * 6.0 * float2(sin(t * 37.0), sin(t * 43.0 + 1.0));
-    float2 C = C0 + wob + shake + float2(0.0, cl * H * 0.06);
+    float2 C = Ctrack + wob + shake + float2(0.0, cl * H * 0.06);
 
-    float R = lerp(R0, R0 * 0.4, cl);
+    float R = lerp(lerp(Rs, R0, ease(po)), Rs, cl);
     if (end_reveal)
         R = lerp(R, length(uv_size) * 1.2, ease(pr) * pr);
 
@@ -416,34 +472,39 @@ float4 mainImage(VertData v_in) : TARGET
     // Sangre: cubre todo; dentro de la boca se retira al cerrar para que la ventana final
     // quede limpia, y afuera se apaga durante la apertura final
     if (show_blood && pb > 0.0) {
-        float cell = H * 0.055;
+        float cell = max(drip_width * 0.01 * H, 4.0);
         float e = bloodField(pos, pb, H, cell, drip_length * 0.01 * H, 3.7, t, blood_motion);
         float m = saturate(e / 1.5 + 0.5);
         float a = blood_opacity * m * lerp(1.0, 1.0 - cl, inside) * settle;
         col = lerp(col, blendBlood(col, bloodShade(e, pos, t, blood_motion, cell), blend_mode), a);
     }
 
-    // Puntos blancos sobre negro (antes de abrir la boca)
-    if (po <= 0.0) {
-        float n = max(floor(dot_count + 0.5), 1.0);
-        float spacing = 2.4 * R0;
+    // Punto blanco sobre negro: entra por la izquierda a velocidad constante. Al quedar completo
+    // dentro deja una sombra fija igual a él; cada sombra se apaga en 50 ms cuando el punto deja
+    // la siguiente, y la última cuando toca la orilla derecha, donde se ensancha y abre la boca.
+    if (show_dots && po < 1.0) {
+        float W = uv_size.x;
+        float tp = p / 0.24;                              // avance del punto, sin recortar
+        float fade = 0.05 / max(duration * 0.24, 0.01);   // 50 ms en unidades de tp
+        float n = floor(dot_trail + 0.5);
+        float span = W - 2.0 * Rs;
         float dots = 0.0;
-        float fi = 0.0;
-        for (int i = 0; i < 6; i++) {
-            if (fi < n) {
-                float appear = fi / n;
-                float vis = smoothstep(appear, appear + 0.03, pd);
-                if (fi < n - 1.0) {
-                    float gone = (fi + 1.0) / n;
-                    vis *= 1.0 - smoothstep(gone + 0.02, gone + 0.06, pd);
-                }
-                float2 dc = float2(C0.x - (n - 1.0 - fi) * spacing, C0.y);
-                float dd = length(pos - dc);
-                dots = max(dots, vis * (1.0 - smoothstep(R0 - aa, R0 + aa, dd)));
-            }
-            fi += 1.0;
+        if (po <= 0.0) {
+            float x = lerp(-Rs, W - Rs, saturate(tp));
+            dots = 1.0 - smoothstep(Rs - aa, Rs + aa, length(pos - float2(x, C0.y)));
         }
-        col = float3(dots, dots, dots);
+        for (int i = 0; i < 6; i++) {
+            float fi = float(i);
+            if (fi < n) {
+                float sx = Rs + span * fi / n;
+                float t_on = (sx + Rs) / W;                       // cuándo la deja
+                float t_off = (Rs + span * (fi + 1.0) / n + Rs) / W; // cuándo deja la siguiente
+                float b = step(t_on, tp) * (1.0 - saturate((tp - t_off) / fade));
+                float dd = length(pos - float2(sx, C0.y));
+                dots = max(dots, b * (1.0 - smoothstep(Rs - aa, Rs + aa, dd)));
+            }
+        }
+        col = (po <= 0.0) ? float3(dots, dots, dots) : lerp(col, float3(1.0, 1.0, 1.0), dots);
     }
 
     if (!end_reveal)
