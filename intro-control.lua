@@ -14,7 +14,7 @@
 obs = obslua
 
 local SHADER_FILTER_ID = "shader_filter"
-local SHADER_PATTERN = { "canon", "sangre", "gunbarrel", "blood" }
+local SHADER_PATTERN = { "canon", "sangre", "gun-barrel", "gunbarrel", "blood" }
 local TICK_MS = 16
 
 local g_target = ""
