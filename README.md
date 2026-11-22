@@ -127,17 +127,21 @@ Shaders for **OBS Studio** inspired by classic spy-film intros: the gun-barrel s
 
 ### Shaders
 
+English versions, with English labels and comments, are in the [`en/`](en) folder:
+
 | File | What it does |
 |---|---|
-| `canon.shader` | Full gun-barrel sequence: a white dot slides across the black screen leaving a trail, opens into the rifled barrel with your source inside, glides to the center, blood drips down, the aperture closes and finally opens to full screen. |
-| `sangre.shader` | Blood curtain with irregular drips. Works as a transition over any source; it can stay covering or drain out the bottom. |
-| `titulos.shader` | Liquid-ink background (black, red and gold) with your source turned into a silhouette, edge glow and optional kaleidoscope. |
+| `en/gun-barrel.shader` | Full gun-barrel sequence: a white dot crosses the black screen leaving shadows, opens into the rifled barrel with your source inside, glides to the center, blood drips down, the aperture closes and finally opens to full screen. |
+| `en/blood.shader` | Blood curtain with irregular drips. Works as a transition over any source; it can stay covering or drain out the bottom. |
+| `en/silhouette-titles.shader` | Liquid-ink background (black, red and gold) with your source turned into a silhouette, edge glow and optional kaleidoscope. |
 
-The blood in both `canon.shader` and `sangre.shader` has Photoshop-style blend modes (*Fusión de la sangre*): normal, multiply, darken, color burn, overlay, soft light, hard light, color and screen.
+The Spanish originals are `canon.shader`, `sangre.shader` and `titulos.shader` in the root; the code is the same.
 
-Parameter labels are in Spanish. Add the filter with **User-defined shader → Load shader text from file**. For the silhouette shader, the source needs transparency (background removal, chroma key or PNG), or enable *Silueta por brillo* to key on brightness.
+The blood in both shaders has Photoshop-style blend modes (*Blood blend mode*): normal, multiply, darken, color burn, overlay, soft light, hard light, color and screen.
 
-To trigger the gun-barrel or blood sequence once with a hotkey, load `intro-control.lua` (**Tools → Scripts**), pick the filter and press *Reproducir*, or bind *Reproducir intro (obs-loving-spies)* under **Settings → Hotkeys**.
+Add the filter with **User-defined shader → Load shader text from file**. For the silhouette shader, the source needs transparency (background removal, chroma key or PNG), or enable *Silhouette by brightness* to key on brightness.
+
+To trigger the gun-barrel or blood sequence once with a hotkey, load `en/intro-control.lua` (**Tools → Scripts**), pick the filter and press *Play*, or bind *Play intro (obs-loving-spies)* under **Settings → Hotkeys**.
 
 Not affiliated with or endorsed by any film franchise.
 

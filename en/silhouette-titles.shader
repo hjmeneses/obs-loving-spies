@@ -1,0 +1,192 @@
+// Silhouette titles: psychedelic liquid-ink background with the source turned into a
+// silhouette, in the style of classic spy-film credit sequences, for OBS Studio
+// (obs-shaderfilter plugin, "User-defined shader" mode).
+//
+// The silhouette comes from the source's transparency (ideal: camera with background removal,
+// chroma key or a PNG). If the source has no transparency, enable "Silhouette by brightness".
+
+uniform bool use_luma<
+    string label = "Silhouette by brightness (source without transparency)";
+> = false;
+
+uniform float luma_threshold<
+    string label = "Brightness threshold";
+    string widget_type = "slider";
+    float minimum = 0.0; float maximum = 1.0; float step = 0.01;
+> = 0.5;
+
+uniform bool luma_invert<
+    string label = "Invert silhouette (dark is the figure)";
+> = false;
+
+uniform float4 color_dark<
+    string label = "Background color (dark)";
+> = {0.02, 0.02, 0.05, 1.0};
+uniform float4 color_gold<
+    string label = "Gold color";
+> = {0.85, 0.62, 0.20, 1.0};
+uniform float4 color_red<
+    string label = "Red color";
+> = {0.60, 0.02, 0.05, 1.0};
+
+uniform float pattern_scale<
+    string label = "Background scale";
+    string widget_type = "slider";
+    float minimum = 0.3; float maximum = 6.0; float step = 0.05;
+> = 1.6;
+
+uniform float flow_speed<
+    string label = "Background speed";
+    string widget_type = "slider";
+    float minimum = 0.0; float maximum = 2.0; float step = 0.01;
+> = 0.3;
+
+// 0 = no kaleidoscope; 2 or more = number of mirrored slices around the center.
+uniform float kaleido<
+    string label = "Kaleidoscope (slices, 0 = off)";
+    string widget_type = "slider";
+    float minimum = 0.0; float maximum = 16.0; float step = 1.0;
+> = 0.0;
+
+uniform float kaleido_spin<
+    string label = "Kaleidoscope spin (degrees/s)";
+    string widget_type = "slider";
+    float minimum = -60.0; float maximum = 60.0; float step = 0.5;
+> = 6.0;
+
+uniform float4 silhouette_color<
+    string label = "Silhouette color";
+> = {0.0, 0.0, 0.0, 1.0};
+
+// 0 = solid-color silhouette; 1 = the silhouette shows the background in negative (red↔gold).
+uniform float silhouette_pattern<
+    string label = "Silhouette fill: solid / pattern";
+    string widget_type = "slider";
+    float minimum = 0.0; float maximum = 1.0; float step = 0.01;
+> = 0.0;
+
+uniform float4 glow_color<
+    string label = "Glow color";
+> = {1.0, 0.75, 0.3, 1.0};
+
+uniform float glow_strength<
+    string label = "Outline glow";
+    string widget_type = "slider";
+    float minimum = 0.0; float maximum = 2.0; float step = 0.01;
+> = 0.8;
+
+uniform float glow_size<
+    string label = "Glow width (px)";
+    string widget_type = "slider";
+    float minimum = 1.0; float maximum = 60.0; float step = 0.5;
+> = 14.0;
+
+uniform float source_mix<
+    string label = "Mix with the original source";
+    string widget_type = "slider";
+    float minimum = 0.0; float maximum = 1.0; float step = 0.01;
+> = 0.0;
+
+float hash12(float2 p)
+{
+    float3 p3 = frac(float3(p.x, p.y, p.x) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return frac((p3.x + p3.y) * p3.z);
+}
+
+float vnoise(float2 p)
+{
+    float2 i = floor(p);
+    float2 f = frac(p);
+    float2 u = f * f * (3.0 - 2.0 * f);
+    float a = hash12(i);
+    float b = hash12(i + float2(1.0, 0.0));
+    float c = hash12(i + float2(0.0, 1.0));
+    float d = hash12(i + float2(1.0, 1.0));
+    return lerp(lerp(a, b, u.x), lerp(c, d, u.x), u.y);
+}
+
+float fbm(float2 p)
+{
+    float s = 0.0;
+    float a = 0.5;
+    for (int i = 0; i < 5; i++) {
+        s += a * vnoise(p);
+        p = p * 2.03 + float2(1.7, 9.2);
+        a *= 0.5;
+    }
+    return s;
+}
+
+// Liquid ink: noise warped twice by itself (domain warping), which gives swirls like paint in
+// water. Returns the color and, in w, the swirl intensity.
+float4 inkColor(float2 p, float t)
+{
+    float2 q = float2(fbm(p + float2(0.0, t * 0.10)),
+                      fbm(p + float2(5.2, 1.3) - t * 0.08));
+    float2 r = float2(fbm(p + 4.0 * q + float2(1.7, 9.2) + t * 0.15),
+                      fbm(p + 4.0 * q + float2(8.3, 2.8) - t * 0.12));
+    float v = fbm(p + 4.0 * r);
+
+    float3 col = lerp(color_dark.rgb, color_red.rgb, saturate(v * 2.2 - 0.45));
+    col = lerp(col, color_gold.rgb, saturate(length(q) * 1.4 - 0.55) * saturate(r.x * 1.6 - 0.2));
+    col *= 0.6 + 0.6 * v;
+    return float4(col, v);
+}
+
+float silMask(float2 uv)
+{
+    float4 s = image.Sample(textureSampler, uv);
+    if (!use_luma)
+        return s.a;
+    float l = dot(s.rgb, float3(0.2126, 0.7152, 0.0722));
+    float m = smoothstep(luma_threshold - 0.05, luma_threshold + 0.05, l);
+    return luma_invert ? 1.0 - m : m;
+}
+
+float4 mainImage(VertData v_in) : TARGET
+{
+    float2 uv = v_in.uv;
+    float t = elapsed_time * flow_speed;
+    float aspect = uv_size.x / uv_size.y;
+
+    // Centered coordinates with the right aspect, optionally folded into a kaleidoscope
+    float2 k = (uv - 0.5) * float2(aspect, 1.0);
+    float segs = floor(kaleido + 0.5);
+    if (segs >= 2.0) {
+        float ang = atan2(k.y, k.x) + radians(kaleido_spin) * elapsed_time;
+        float rad = length(k);
+        float w = 6.2831853 / segs;
+        ang = ang - w * floor(ang / w);
+        ang = abs(ang - w * 0.5);
+        k = rad * float2(cos(ang), sin(ang));
+    }
+    float4 ink = inkColor(k * pattern_scale + 10.0, t);
+
+    float4 src = image.Sample(textureSampler, uv);
+    float m = silMask(uv);
+
+    // Outer glow: mask averaged over three rings of 8 samples, each ring rotated 15° from the
+    // previous one so wide glows do not form spikes. Only outside the figure
+    float blurred = 0.0;
+    float fi = 0.0;
+    for (int i = 0; i < 24; i++) {
+        float ring = floor(fi / 8.0);
+        float a = (fi - ring * 8.0) * 0.7853982 + ring * 0.2617994;
+        float rr = (ring + 1.0) / 3.0;
+        float2 o = float2(cos(a), sin(a)) * glow_size * rr * uv_pixel_interval;
+        blurred += silMask(uv + o);
+        fi += 1.0;
+    }
+    blurred /= 24.0;
+    float glow = blurred * (1.0 - m) * glow_strength;
+
+    // Negative of the background for the pattern fill: swaps red and gold
+    float3 neg = lerp(color_gold.rgb, color_red.rgb, saturate(ink.w * 2.2 - 0.45)) * (0.5 + 0.7 * ink.w);
+    float3 fill = lerp(silhouette_color.rgb, neg, silhouette_pattern);
+
+    float3 col = lerp(ink.rgb, fill, m);
+    col += glow_color.rgb * glow;
+    col = lerp(col, src.rgb, source_mix * src.a);
+    return float4(col, 1.0);
+}
