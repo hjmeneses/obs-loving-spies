@@ -117,7 +117,7 @@ float bloodField(float2 pos, float level, float H, float cell, float drip_len, f
     float front = lerp(-drip_len - mg, H + mg, level);
     front += sin(x * 0.006 + sd * 1.7) * (cell * 0.3 + drip_len * 0.06)
            + sin(x * 0.013 + sd) * cell * 0.15
-           + sin(x * 0.031 + sd * 2.0 + t * 1.1) * cell * (0.03 + 0.03 * mv)
+           + sin(x * 0.031 + sd * 2.0 + t * 1.1 * mv) * cell * (0.03 + 0.03 * mv)
            + sin(x * 0.071 - t * 1.9 + sd) * cell * 0.025 * mv;
     float d = pos.y - front;
 
@@ -283,5 +283,8 @@ float4 mainImage(VertData v_in) : TARGET
 
     float3 bc = blendBlood(src.rgb, bloodShade(e, pos, t, motion, cell), blend_mode);
     float a = m * blood_opacity;
-    return float4(lerp(src.rgb, bc, a), max(src.a, a));
+    // "Over" compositing: the blood (alpha a) on top of the source (alpha src.a)
+    float oa = a + src.a * (1.0 - a);
+    float3 rgb = (bc * a + src.rgb * src.a * (1.0 - a)) / max(oa, 1e-4);
+    return float4(rgb, oa);
 }
