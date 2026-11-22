@@ -158,18 +158,54 @@ float bloodField(float2 pos, float level, float H, float cell, float drip_len, f
     return -d;
 }
 
+// Ruido de valor sin sin() (ver hash11)
+float hash21(float2 p)
+{
+    float3 p3 = frac(float3(p.x, p.y, p.x) * 0.1031);
+    p3 += dot(p3, p3.yzx + 33.33);
+    return frac((p3.x + p3.y) * p3.z);
+}
+
+float vnoise(float2 p)
+{
+    float2 i = floor(p);
+    float2 f = p - i;
+    float2 u = f * f * (3.0 - 2.0 * f);
+    float a = hash21(i);
+    float b = hash21(i + float2(1.0, 0.0));
+    float c = hash21(i + float2(0.0, 1.0));
+    float d = hash21(i + float2(1.0, 1.0));
+    return lerp(lerp(a, b, u.x), lerp(c, d, u.x), u.y);
+}
+
+// Relieve de la capa de sangre (0–1, alto = más gruesa): ruido estirado en vertical que baja con
+// el tiempo y serpentea un poco, como líquido que escurre. Sin periodo fijo, así no parece tela.
+float bloodHeight(float2 pos, float t, float mv, float cell)
+{
+    float y = pos.y - t * mv * cell * 0.9;
+    float x = pos.x + cell * 1.2 * (vnoise(float2(pos.x, y) / (cell * 6.0)) - 0.5);
+    float2 q = float2(x / (cell * 1.3), y / (cell * 7.0));
+    return 0.6 * vnoise(q) + 0.3 * vnoise(q * 2.03 + float2(17.0, 5.0))
+         + 0.1 * vnoise(q * 4.1 + float2(41.0, 23.0));
+}
+
 // Color según e (px hacia adentro): orilla oscura, brillo húmedo que sigue la forma de cada
-// chorro (luz desde arriba a la izquierda) y vetas que fluyen hacia abajo por dentro.
-// Las vetas tienen periodo irregular (x deformada) y poco contraste, y se desvanecen lejos de la
-// orilla: con periodo fijo y mucho contraste la cortina parecía tela.
+// chorro (luz desde arriba a la izquierda) y, por dentro, una capa de grosor irregular: más
+// oscura donde es gruesa y con reflejos suaves donde el relieve mira hacia la luz.
 float3 bloodShade(float e, float2 pos, float t, float mv, float cell)
 {
-    float3 c = blood_color.rgb * lerp(0.55, 1.0, smoothstep(0.0, 5.0, e));
+    float deep = smoothstep(4.0, 24.0, e);                    // el relieve aparece lejos de la orilla
+    float h = bloodHeight(pos, t, mv, cell);
+    float hx = bloodHeight(pos + float2(1.0, 0.0), t, mv, cell) - h;
+    float hy = bloodHeight(pos + float2(0.0, 1.0), t, mv, cell) - h;
 
-    float wx = pos.x + 18.0 * sin(pos.x * 0.017 + 1.3) + 11.0 * sin(pos.x * 0.041 + 4.0);
-    float flow = 0.5 + 0.5 * sin(wx * 0.07 + 2.0 * sin(pos.y * 0.012 - t * 0.9 * mv + pos.x * 0.01));
-    float streak = smoothstep(6.0, 20.0, e) * lerp(0.5, 1.0, 1.0 - smoothstep(cell * 1.5, cell * 5.0, e));
-    c *= lerp(1.0, lerp(0.86, 1.05, flow), streak);
+    float3 c = blood_color.rgb * lerp(0.55, 1.0, smoothstep(0.0, 5.0, e))
+             * lerp(1.0, lerp(1.06, 0.8, h), deep);
+
+    float k = cell * deep;
+    float3 nrm = normalize(float3(-hx * k, -hy * k, 1.0));
+    float3 hv = normalize(normalize(float3(-0.35, -0.6, 0.72)) + float3(0.0, 0.0, 1.0));
+    c += pow(saturate(dot(nrm, hv)), 24.0) * 0.15 * deep * float3(1.0, 0.8, 0.8);
 
     float2 gr = float2(ddx(e), ddy(e));
     float2 n = -gr / max(length(gr), 1e-4);

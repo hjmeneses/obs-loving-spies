@@ -17,7 +17,7 @@ Shaders para **OBS Studio** inspirados en las intros clásicas de películas de 
 
 | Archivo | Qué hace |
 |---|---|
-| `canon.shader` | La secuencia completa del cañón: puntos blancos sobre negro, el último se abre y deja ver la fuente dentro del cañón estriado, escurre sangre, la boca se cierra y al final se abre a pantalla completa. |
+| `canon.shader` | La secuencia completa del cañón: un punto blanco cruza la pantalla dejando sombras, se abre y deja ver la fuente dentro del cañón estriado, que se desliza al centro, escurre sangre, la boca se cierra y al final se abre a pantalla completa. |
 | `sangre.shader` | Solo la cortina de sangre: chorros que crecen cada uno a su ritmo con gota en la punta, orilla que ondula y gotas que caen. Sirve como transición sobre cualquier fuente; puede quedarse cubriendo o escurrir y salir por abajo. |
 | `titulos.shader` | Fondo de tinta líquida (negro, rojo y dorado) con la fuente convertida en silueta, resplandor en el contorno y caleidoscopio opcional. |
 
@@ -36,8 +36,9 @@ Aplícalo a la fuente que debe verse dentro del cañón (tu cámara o la escena 
 
 | Progreso | Qué pasa |
 |---|---|
-| 0–24 % | Puntos blancos aparecen uno tras otro sobre negro |
-| 24–32 % | El último punto se abre: adentro la fuente, afuera el cañón |
+| 0–24 % | Un punto blanco, del tamaño de la boca cerrada, cruza la pantalla de izquierda a derecha. Va dejando sombras fijas iguales a él; cada una se apaga en 50 ms cuando deja la siguiente |
+| 24–32 % | Al tocar la orilla derecha, la última sombra se apaga y el punto se ensancha hasta el Radio de la boca: adentro la fuente, afuera el cañón |
+| 30–55 % | El cañón se desliza hasta el centro, como si siguiera a la fuente |
 | 32–60 % | El cañón gira y se bambolea |
 | 60–76 % | Escurre la sangre |
 | 76–88 % | El cañón cae y tiembla; la boca se cierra |
@@ -47,11 +48,13 @@ Aplícalo a la fuente que debe verse dentro del cañón (tu cámara o la escena 
 |---|---|
 | Reproducir en bucle | Repite la secuencia sola. Apágalo para controlar el Progreso a mano o con el script |
 | Duración | Segundos que dura la secuencia completa |
-| Centro X/Y, Radio de la boca | Dónde queda la boca del cañón y qué tan grande es |
+| Centro X/Y, Radio de la boca | A dónde llega la boca del cañón y qué tan grande es |
+| Tamaño del punto y de la boca cerrada | Un solo control para los dos: el punto del inicio y el círculo al que se cierra la boca después de la sangre, en % del Radio de la boca (40 por defecto) |
+| Punto blanco / Sombras del punto | El punto que cruza al inicio y cuántas sombras deja, repartidas a lo ancho (0 = ninguna) |
 | Estrías / Torsión / Giro | Número de estrías, cuánto se tuercen en espiral y velocidad de giro |
 | Profundidad | Contraste de los anillos de maquinado y oscurecimiento hacia la orilla |
 | Bamboleo | Cuánto se mueve el cañón como si siguiera a alguien |
-| Sangre / Opacidad / Largo de los chorros | La cortina roja de la mitad de la secuencia. Con opacidad menor a 1 la fuente se transparenta a través de la sangre |
+| Sangre / Opacidad / Largo / Ancho de los chorros | La cortina roja de la mitad de la secuencia. Con opacidad menor a 1 la fuente se transparenta a través de la sangre. El ancho cambia el grosor de los chorros y las gotas (y qué tan separados están) |
 | Movimiento de la sangre | Qué tanto ondula, se arrastra y gotea (0 = quieta) |
 | Fusión de la sangre | Cómo se mezcla la sangre con lo que hay debajo, como en Photoshop (ver abajo) |
 
@@ -126,11 +129,11 @@ Shaders for **OBS Studio** inspired by classic spy-film intros: the gun-barrel s
 
 | File | What it does |
 |---|---|
-| `canon.shader` | Full gun-barrel sequence: white dots on black, the last one opens into the rifled barrel with your source inside, blood drips down, the aperture closes and finally opens to full screen. |
+| `canon.shader` | Full gun-barrel sequence: a white dot slides across the black screen leaving a trail, opens into the rifled barrel with your source inside, glides to the center, blood drips down, the aperture closes and finally opens to full screen. |
 | `sangre.shader` | Blood curtain with irregular drips. Works as a transition over any source; it can stay covering or drain out the bottom. |
+| `titulos.shader` | Liquid-ink background (black, red and gold) with your source turned into a silhouette, edge glow and optional kaleidoscope. |
 
 The blood in both `canon.shader` and `sangre.shader` has Photoshop-style blend modes (*Fusión de la sangre*): normal, multiply, darken, color burn, overlay, soft light, hard light, color and screen.
-| `titulos.shader` | Liquid-ink background (black, red and gold) with your source turned into a silhouette, edge glow and optional kaleidoscope. |
 
 Parameter labels are in Spanish. Add the filter with **User-defined shader → Load shader text from file**. For the silhouette shader, the source needs transparency (background removal, chroma key or PNG), or enable *Silueta por brillo* to key on brightness.
 
