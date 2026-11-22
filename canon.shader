@@ -213,7 +213,7 @@ float bloodField(float2 pos, float level, float H, float cell, float drip_len, f
     float front = lerp(-drip_len - mg, H + mg, level);
     front += sin(x * 0.006 + sd * 1.7) * (cell * 0.3 + drip_len * 0.06)
            + sin(x * 0.013 + sd) * cell * 0.15
-           + sin(x * 0.031 + sd * 2.0 + t * 1.1) * cell * (0.03 + 0.03 * mv)
+           + sin(x * 0.031 + sd * 2.0 + t * 1.1 * mv) * cell * (0.03 + 0.03 * mv)
            + sin(x * 0.071 - t * 1.9 + sd) * cell * 0.025 * mv;
     float d = pos.y - front;
 
