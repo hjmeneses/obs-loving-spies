@@ -74,6 +74,12 @@ uniform float motion<
     float minimum = 0.0; float maximum = 3.0; float step = 0.05;
 > = 1.0;
 
+uniform float flow_angle<
+    string label = "Direccion (0 = cae, 90 = a la derecha, 180 = sube, 270 = a la izquierda)";
+    string widget_type = "slider";
+    float minimum = 0.0; float maximum = 360.0; float step = 1.0;
+> = 0.0;
+
 float hash11(float p)
 {
     p = frac(p * 0.1031);
@@ -259,13 +265,21 @@ float3 blendBlood(float3 b, float3 s, int mode)
 float4 mainImage(VertData v_in) : TARGET
 {
     float2 uv = v_in.uv;
-    float2 pos = uv * uv_size;
-    float H = uv_size.y;
+    // Espacio del liquido: se gira la pantalla para que el flujo siempre vaya hacia +y; F es la
+    // caja girada que la contiene, asi con nivel 1 cubre hasta las esquinas en cualquier angulo.
+    float fa = radians(flow_angle);
+    float ca = cos(fa);
+    float sa = sin(fa);
+    float2 S = uv_size;
+    float2 F = float2(abs(S.x * ca) + abs(S.y * sa), abs(S.x * sa) + abs(S.y * ca));
+    float2 dp = uv * S - S * 0.5;
+    float2 pos = float2(ca * dp.x - sa * dp.y, sa * dp.x + ca * dp.y) + F * 0.5;
+    float H = F.y;
     float t = elapsed_time;
     float4 src = image.Sample(textureSampler, uv);
 
     float p = auto_play ? frac(t / max(duration, 0.5)) : saturate(progress * 0.01);
-    float cell = max(drip_width * 0.01 * H, 4.0);
+    float cell = max(drip_width * 0.01 * S.y, 4.0);
     float dl = drip_length * 0.01 * H;
 
     // Sin escurrir: 0–90% baja, 90–100% cubierta. Escurriendo: 0–50% baja, 50–100% la orilla

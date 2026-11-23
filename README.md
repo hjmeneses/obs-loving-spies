@@ -72,6 +72,7 @@ Aplícalo a la fuente que debe verse dentro del cañón (tu cámara o la escena 
 | Variación (semilla) | Cambia el dibujo de los chorros |
 | Movimiento | Qué tanto ondula la orilla, se arrastran las puntas y caen gotas sueltas (0 = quieta). Sigue vivo aunque detengas el Progreso |
 | Escurrir al final | La sangre sigue bajando y sale por abajo, dejando la fuente limpia |
+| Dirección | Hacia dónde corre el líquido, en grados: 0 = cae, 90 = a la derecha, 180 = sube, 270 = a la izquierda; cualquier valor intermedio va en diagonal. Los chorros, las gotas que se desprenden y el escurrido siguen esa dirección, así que sirve para cualquier líquido (o para terror: sangre que sube) |
 | Fusión de la sangre | Cómo se mezcla la sangre con la fuente (ver abajo) |
 
 ### Fusión de la sangre
